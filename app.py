@@ -4,7 +4,7 @@ from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import urllib.parse
-import time # Added for retry logic
+import time
 
 app = Flask(__name__)
 
@@ -14,15 +14,15 @@ app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "supersecret")
 
 # Professional Step: Extract components and encode the password
 user = os.getenv('MYSQL_USER')
-password = os.getenv('MYSQL_PASSWORD') 
+password = os.getenv('MYSQL_PASSWORD') # AzureAdmin@2026!
 host = os.getenv('MYSQL_HOST')
 database = os.getenv('MYSQL_DB')
 
-# URL Encode the password to handle '@' and '!'
+# URL Encode the password to handle the '@' symbol professionally
+# This prevents "Name or service not known" errors
 safe_password = urllib.parse.quote_plus(password) if password else ""
 
-# Professional Step: Handle SSL requirements for Azure MySQL
-# We add ?ssl_ca= to ensure the connection is accepted by Azure's security gate
+# Build the connection URI with the encoded password
 app.config['SQLALCHEMY_DATABASE_URI'] = (
     f"mysql+pymysql://{user}:{safe_password}@{host}/{database}"
 )
@@ -72,15 +72,17 @@ def login():
 
 if __name__ == "__main__":
     # Professional Step: Retry Loop
-    # This prevents 'CrashLoopBackOff' if the DB is slow to respond on startup
+    # This prevents 'CrashLoopBackOff' by waiting for the DB to be ready
     connected = False
     while not connected:
         try:
             with app.app_context():
-                db.create_all() # Automatically creates tables
+                # Automatically creates tables in your Azure MySQL database
+                db.create_all() 
             connected = True
             print("Successfully connected to Azure MySQL!")
         except Exception as e:
+            # If connection fails (e.g. DNS or Firewall), wait 5 seconds and try again
             print(f"Database not ready yet... retrying in 5 seconds. Error: {e}")
             time.sleep(5)
     
