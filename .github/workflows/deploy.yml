@@ -26,23 +26,35 @@ jobs:
           docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/flaskapp:${{ github.sha }} .
           docker push ${{ secrets.ACR_NAME }}.azurecr.io/flaskapp:${{ github.sha }}
 
-      # Professional Step: Handle Transitioning states
-      - name: Wait for Transition and Stop
+      # Wait for any transition state
+      - name: Wait for Container to Stabilize
         run: |
-          echo "Checking if container 'flaskapp' is busy..."
-          # Wait up to 3 minutes for any ongoing operations to finish
+          echo "Checking container state..."
           for i in {1..12}; do
-            STATE=$(az container show --name flaskapp --resource-group ${{ secrets.RESOURCE_GROUP }} --query "provisioningState" --output tsv || echo "NotFound")
-            if [[ "$STATE" != "Creating" && "$STATE" != "Updating" && "$STATE" != "Deleting" ]]; then
-              echo "Container is stable. Stopping it now to prepare for update..."
-              az container stop --name flaskapp --resource-group ${{ secrets.RESOURCE_GROUP }} || true
-              exit 0
+            STATE=$(az container show \
+              --name flaskapp \
+              --resource-group ${{ secrets.RESOURCE_GROUP }} \
+              --query "provisioningState" \
+              --output tsv 2>/dev/null || echo "NotFound")
+
+            if [[ "$STATE" == "Succeeded" || "$STATE" == "Failed" || "$STATE" == "NotFound" ]]; then
+              echo "Container is stable: $STATE"
+              break
             fi
-            echo "Container is currently $STATE. Retrying in 15 seconds (Attempt $i/12)..."
+
+            echo "Current state: $STATE. Waiting..."
             sleep 15
           done
-          echo "Timeout: Container group is stuck in transitioning." && exit 1
 
+      # Delete old container if exists
+      - name: Delete Existing Container
+        run: |
+          az container delete \
+            --name flaskapp \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --yes || true
+
+      # Deploy new container
       - name: Deploy Container Instance
         run: |
           az container create \
@@ -52,7 +64,7 @@ jobs:
             --registry-login-server ${{ secrets.ACR_NAME }}.azurecr.io \
             --registry-username ${{ secrets.ACR_USER }} \
             --registry-password ${{ secrets.ACR_PASS }} \
-            --dns-name-label flaskapp-${{ github.run_number }} \
+            --dns-name-label flaskapp \
             --ports 5000 \
             --location southeastasia \
             --os-type Linux \
