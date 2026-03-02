@@ -10,19 +10,20 @@ app = Flask(__name__)
 
 # ------------------ CONFIGURATION ------------------
 
+# Secret key for session management
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "supersecret")
 
-# Professional Step: Extract components and encode the password
+# Fetch environment variables from Azure
 user = os.getenv('MYSQL_USER')
-password = os.getenv('MYSQL_PASSWORD') # AzureAdmin@2026!
+password = os.getenv('MYSQL_PASSWORD') # Bunny@123
 host = os.getenv('MYSQL_HOST')
 database = os.getenv('MYSQL_DB')
 
-# URL Encode the password to handle the '@' symbol professionally
-# This prevents "Name or service not known" errors
+# Professional Step: Encode the password
+# This converts 'Bunny@123' to 'Bunny%40123' so the URI doesn't break
 safe_password = urllib.parse.quote_plus(password) if password else ""
 
-# Build the connection URI with the encoded password
+# Build the final connection URI
 app.config['SQLALCHEMY_DATABASE_URI'] = (
     f"mysql+pymysql://{user}:{safe_password}@{host}/{database}"
 )
@@ -56,7 +57,7 @@ def register():
             return redirect(url_for('login'))
         except Exception as e:
             db.session.rollback()
-            return f"Error: {str(e)}"
+            return f"Error during registration: {str(e)}"
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -71,19 +72,20 @@ def login():
 # ------------------ MAIN ------------------
 
 if __name__ == "__main__":
-    # Professional Step: Retry Loop
-    # This prevents 'CrashLoopBackOff' by waiting for the DB to be ready
+    # Professional Step: Database Connection Retry Loop
+    # This keeps the container alive while waiting for Azure MySQL to be ready
     connected = False
     while not connected:
         try:
             with app.app_context():
-                # Automatically creates tables in your Azure MySQL database
+                # Ensures the 'User' table exists in Azure MySQL
                 db.create_all() 
             connected = True
             print("Successfully connected to Azure MySQL!")
         except Exception as e:
-            # If connection fails (e.g. DNS or Firewall), wait 5 seconds and try again
-            print(f"Database not ready yet... retrying in 5 seconds. Error: {e}")
+            # Logs the error and waits 5 seconds before retrying
+            print(f"Database handshake failed... retrying in 5 seconds. Error: {e}")
             time.sleep(5)
     
+    # Run the Flask server on port 5000
     app.run(host="0.0.0.0", port=5000)
