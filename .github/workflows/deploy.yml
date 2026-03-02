@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
       - name: Azure Login
         uses: azure/login@v1
@@ -39,6 +40,8 @@ jobs:
             --registry-password ${{ secrets.ACR_PASS }} \
             --dns-name-label flaskapp-${{ github.run_number }} \
             --ports 5000 \
+            --location southeastasia \
+            --os-type Linux \
             --environment-variables \
               MYSQL_HOST=${{ secrets.MYSQL_HOST }} \
               MYSQL_USER=${{ secrets.MYSQL_USER }} \
