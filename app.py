@@ -71,21 +71,44 @@ def login():
 
 # ------------------ MAIN ------------------
 
+# if __name__ == "__main__":
+#     # Professional Step: Database Connection Retry Loop
+#     # This keeps the container alive while waiting for Azure MySQL to be ready
+#     connected = False
+#     while not connected:
+#         try:
+#             with app.app_context():
+#                 # Ensures the 'User' table exists in Azure MySQL
+#                 db.create_all() 
+#             connected = True
+#             print("Successfully connected to Azure MySQL!")
+#         except Exception as e:
+#             # Logs the error and waits 5 seconds before retrying
+#             print(f"Database handshake failed... retrying in 5 seconds. Error: {e}")
+#             time.sleep(5)
+    
+#     # Run the Flask server on port 5000
+#     app.run(host="0.0.0.0", port=5000)
+
 if __name__ == "__main__":
-    # Professional Step: Database Connection Retry Loop
-    # This keeps the container alive while waiting for Azure MySQL to be ready
+    # The 'flush=True' is the secret to seeing logs in Azure instantly
+    print("--- AZURE CONTAINER STARTING ---", flush=True)
+    
+    # Verify environment variables exist (don't print the actual password!)
+    print(f"Connecting to host: {os.getenv('MYSQL_HOST')}", flush=True)
+    print(f"Database: {os.getenv('MYSQL_DB')}", flush=True)
+
     connected = False
     while not connected:
         try:
+            print("Attempting database connection...", flush=True)
             with app.app_context():
-                # Ensures the 'User' table exists in Azure MySQL
                 db.create_all() 
             connected = True
-            print("Successfully connected to Azure MySQL!")
+            print("Successfully connected to Azure MySQL!", flush=True)
         except Exception as e:
-            # Logs the error and waits 5 seconds before retrying
-            print(f"Database handshake failed... retrying in 5 seconds. Error: {e}")
+            print(f"Handshake failed: {e}", flush=True)
             time.sleep(5)
     
-    # Run the Flask server on port 5000
+    print("Starting Flask server on port 5000...", flush=True)
     app.run(host="0.0.0.0", port=5000)
