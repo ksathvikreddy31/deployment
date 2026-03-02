@@ -21,8 +21,8 @@ database = os.getenv('MYSQL_DB')
 
 # Professional Step: Encode the password
 # This converts 'Bunny@123' to 'Bunny%40123' so the URI doesn't break
-safe_password = urllib.parse.quote_plus(password) if password else ""
-
+# safe_password = urllib.parse.quote_plus(password) if password else ""
+safe_password = urllib.parse.quote_plus(os.getenv('MYSQL_PASSWORD'))
 # Build the final connection URI
 app.config['SQLALCHEMY_DATABASE_URI'] = (
     f"mysql+pymysql://{user}:{safe_password}@{host}/{database}"
