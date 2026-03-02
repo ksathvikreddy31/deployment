@@ -26,6 +26,23 @@ jobs:
           docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/flaskapp:${{ github.sha }} .
           docker push ${{ secrets.ACR_NAME }}.azurecr.io/flaskapp:${{ github.sha }}
 
+      # Professional Step: Handle Transitioning states
+      - name: Wait for Transition and Stop
+        run: |
+          echo "Checking if container 'flaskapp' is busy..."
+          # Wait up to 3 minutes for any ongoing operations to finish
+          for i in {1..12}; do
+            STATE=$(az container show --name flaskapp --resource-group ${{ secrets.RESOURCE_GROUP }} --query "provisioningState" --output tsv || echo "NotFound")
+            if [[ "$STATE" != "Creating" && "$STATE" != "Updating" && "$STATE" != "Deleting" ]]; then
+              echo "Container is stable. Stopping it now to prepare for update..."
+              az container stop --name flaskapp --resource-group ${{ secrets.RESOURCE_GROUP }} || true
+              exit 0
+            fi
+            echo "Container is currently $STATE. Retrying in 15 seconds (Attempt $i/12)..."
+            sleep 15
+          done
+          echo "Timeout: Container group is stuck in transitioning." && exit 1
+
       - name: Deploy Container Instance
         run: |
           az container create \
