@@ -1,0 +1,46 @@
+name: Deploy Flask App to Azure
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/flaskapp:${{ github.sha }} .
+
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/flaskapp:${{ github.sha }}
+
+      - name: Deploy Container Instance
+        run: |
+          az container create \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --name flaskapp \
+            --image ${{ secrets.ACR_NAME }}.azurecr.io/flaskapp:${{ github.sha }} \
+            --registry-login-server ${{ secrets.ACR_NAME }}.azurecr.io \
+            --registry-username ${{ secrets.ACR_USER }} \
+            --registry-password ${{ secrets.ACR_PASS }} \
+            --dns-name-label flaskapp-${{ github.run_number }} \
+            --ports 5000 \
+            --environment-variables \
+              MYSQL_HOST=${{ secrets.MYSQL_HOST }} \
+              MYSQL_USER=${{ secrets.MYSQL_USER }} \
+              MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }} \
+              MYSQL_DB=${{ secrets.MYSQL_DB }}
