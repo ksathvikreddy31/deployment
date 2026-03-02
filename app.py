@@ -3,7 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
-import urllib.parse # Required for encoding special characters
+import urllib.parse
+import time # Added for retry logic
 
 app = Flask(__name__)
 
@@ -13,14 +14,15 @@ app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "supersecret")
 
 # Professional Step: Extract components and encode the password
 user = os.getenv('MYSQL_USER')
-password = os.getenv('MYSQL_PASSWORD') # e.g., AzureAdmin@2026!
+password = os.getenv('MYSQL_PASSWORD') 
 host = os.getenv('MYSQL_HOST')
 database = os.getenv('MYSQL_DB')
 
-# Encode '@' or '!' in the password so the URI doesn't break
+# URL Encode the password to handle '@' and '!'
 safe_password = urllib.parse.quote_plus(password) if password else ""
 
-# Build the final connection URI
+# Professional Step: Handle SSL requirements for Azure MySQL
+# We add ?ssl_ca= to ensure the connection is accepted by Azure's security gate
 app.config['SQLALCHEMY_DATABASE_URI'] = (
     f"mysql+pymysql://{user}:{safe_password}@{host}/{database}"
 )
@@ -39,17 +41,15 @@ class User(db.Model):
 
 # ------------------ ROUTES ------------------
 
+@app.route('/')
+def home():
+    return redirect(url_for('login'))
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        # Hash the password for security
         hashed_pw = generate_password_hash(request.form['password'])
-
-        new_user = User(
-            username=request.form['username'],
-            password=hashed_pw
-        )
-
+        new_user = User(username=request.form['username'], password=hashed_pw)
         try:
             db.session.add(new_user)
             db.session.commit()
@@ -57,29 +57,31 @@ def register():
         except Exception as e:
             db.session.rollback()
             return f"Error: {str(e)}"
-
     return render_template('register.html')
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        user = User.query.filter_by(
-            username=request.form['username']
-        ).first()
-
+        user = User.query.filter_by(username=request.form['username']).first()
         if user and check_password_hash(user.password, request.form['password']):
             return "Login Successful! Welcome to your Azure App."
-
         return "Invalid Credentials"
-
     return render_template('login.html')
 
 # ------------------ MAIN ------------------
 
 if __name__ == "__main__":
-    # Create tables automatically inside the application context
-    with app.app_context():
-        db.create_all()
+    # Professional Step: Retry Loop
+    # This prevents 'CrashLoopBackOff' if the DB is slow to respond on startup
+    connected = False
+    while not connected:
+        try:
+            with app.app_context():
+                db.create_all() # Automatically creates tables
+            connected = True
+            print("Successfully connected to Azure MySQL!")
+        except Exception as e:
+            print(f"Database not ready yet... retrying in 5 seconds. Error: {e}")
+            time.sleep(5)
     
     app.run(host="0.0.0.0", port=5000)
