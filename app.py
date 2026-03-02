@@ -46,7 +46,7 @@ def home():
 
 # ------------------ MAIN ------------------
 if __name__ == "__main__":
-    print("--- ENTERING MAIN LOOP ---", flush=True)
+    print("--- AZURE STARTUP ---", flush=True)
     connected = False
     retry_count = 0
     
