@@ -44,6 +44,9 @@ jobs:
             --dns-name-label flaskapp \
             --ports 5000 \
             --location southeastasia \
+            --os-type Linux \
+            --cpu 1 \
+            --memory 1.5 \
             --environment-variables \
               MYSQL_HOST=${{ secrets.MYSQL_HOST }} \
               MYSQL_USER=${{ secrets.MYSQL_USER }} \
