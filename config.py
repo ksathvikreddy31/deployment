@@ -15,7 +15,9 @@ class Config:
 
     SQLALCHEMY_ENGINE_OPTIONS = {
         "connect_args": {
-            "ssl": {"ssl_disabled": False}
+            "ssl": {
+                "ca": "/app/BaltimoreCyberTrustRoot.crt.pem"
+            }
         }
     }
 
