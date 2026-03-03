@@ -9,9 +9,9 @@ class Config:
     MYSQL_DB = os.getenv("MYSQL_DB")
 
     SQLALCHEMY_DATABASE_URI = (
-        f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}"
-        f"@{MYSQL_HOST}/{MYSQL_DB}"
-        "?ssl_mode=REQUIRED"
+    f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}"
+    f"@{MYSQL_HOST}/{MYSQL_DB}"
+    "?ssl_mode=REQUIRED"
     )
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
