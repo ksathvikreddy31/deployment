@@ -45,4 +45,4 @@ def login():
 
 if __name__ == "__main__":
     # 0.0.0.0 is the "Industry Standard" for cloud containers
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=80)
