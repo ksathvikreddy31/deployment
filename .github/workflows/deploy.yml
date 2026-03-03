@@ -10,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Azure Login
         uses: azure/login@v1
@@ -21,32 +20,11 @@ jobs:
       - name: Login to ACR
         run: az acr login --name ${{ secrets.ACR_NAME }}
 
-      - name: Build and Push Docker Image
+      - name: Build and Push Image
         run: |
           docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/flaskapp:${{ github.sha }} .
           docker push ${{ secrets.ACR_NAME }}.azurecr.io/flaskapp:${{ github.sha }}
 
-      # Wait for any transition state
-      - name: Wait for Container to Stabilize
-        run: |
-          echo "Checking container state..."
-          for i in {1..12}; do
-            STATE=$(az container show \
-              --name flaskapp \
-              --resource-group ${{ secrets.RESOURCE_GROUP }} \
-              --query "provisioningState" \
-              --output tsv 2>/dev/null || echo "NotFound")
-
-            if [[ "$STATE" == "Succeeded" || "$STATE" == "Failed" || "$STATE" == "NotFound" ]]; then
-              echo "Container is stable: $STATE"
-              break
-            fi
-
-            echo "Current state: $STATE. Waiting..."
-            sleep 15
-          done
-
-      # Delete old container if exists
       - name: Delete Existing Container
         run: |
           az container delete \
@@ -54,8 +32,7 @@ jobs:
             --resource-group ${{ secrets.RESOURCE_GROUP }} \
             --yes || true
 
-      # Deploy new container
-      - name: Deploy Container Instance
+      - name: Deploy Container
         run: |
           az container create \
             --resource-group ${{ secrets.RESOURCE_GROUP }} \
@@ -67,9 +44,6 @@ jobs:
             --dns-name-label flaskapp \
             --ports 5000 \
             --location southeastasia \
-            --os-type Linux \
-            --cpu 1 \
-            --memory 1.5 \
             --environment-variables \
               MYSQL_HOST=${{ secrets.MYSQL_HOST }} \
               MYSQL_USER=${{ secrets.MYSQL_USER }} \

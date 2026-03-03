@@ -1,113 +1,19 @@
-# from flask import Flask, request, render_template, redirect, url_for
-# from flask_sqlalchemy import SQLAlchemy
-# import os
-# import urllib.parse
-# import time
-# import sys
-
-# app = Flask(__name__)
-
-# # STARTUP LOG - This MUST show up in 'az container logs'
-# print("--- APPLICATION INITIALIZING ---", flush=True)
-
-# # ------------------ CONFIGURATION ------------------
-# app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "supersecret")
-
-# user = os.getenv('MYSQL_USER')
-# password = os.getenv('MYSQL_PASSWORD') 
-# host = os.getenv('MYSQL_HOST')
-# database = os.getenv('MYSQL_DB')
-
-# print(f"DEBUG: Attempting to connect as user: {user} to host: {host}", flush=True)
-
-# # THE CRITICAL FIX for 'Bunny@123'
-# if password:
-#     safe_password = urllib.parse.quote_plus(password)
-#     print("DEBUG: Password successfully encoded.", flush=True)
-# else:
-#     safe_password = ""
-#     print("DEBUG: WARNING - No password found in environment variables!", flush=True)
-
-# app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{user}:{safe_password}@{host}/{database}"
-# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# db = SQLAlchemy(app)
-
-# # ------------------ MODEL ------------------
-# class User(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     username = db.Column(db.String(100), unique=True, nullable=False)
-#     password = db.Column(db.String(200), nullable=False)
-
-# # ------------------ ROUTES ------------------
-# @app.route('/')
-# def home():
-#     return "App is Running!"
-
-# # ------------------ MAIN ------------------
-# if __name__ == "__main__":
-#     print("--- AZURE STARTUP ---", flush=True)
-#     connected = False
-#     retry_count = 0
-    
-#     while not connected and retry_count < 10:
-#         try:
-#             print(f"Connection Attempt {retry_count + 1}...", flush=True)
-#             with app.app_context():
-#                 db.create_all() 
-#             connected = True
-#             print("SUCCESS: Connected to Azure MySQL!", flush=True)
-#         except Exception as e:
-#             retry_count += 1
-#             print(f"ERROR: Database not ready. Reason: {e}", flush=True)
-#             time.sleep(5)
-    
-#     if connected:
-#         print("Starting Flask server on port 5000...", flush=True)
-#         app.run(host="0.0.0.0", port=5000)
-#     else:
-#         print("FATAL: Could not connect to DB after 10 attempts. Shutting down.", flush=True)
-#         sys.exit(1)
-
-from flask import Flask, request, render_template, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+from flask import Flask, render_template, request, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
-import os
+from flask_migrate import Migrate
 
-# ---------------- APP CONFIG ---------------- #
+from config import Config
+from models.user import db, User
 
 app = Flask(__name__)
+app.config.from_object(Config)
 
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "supersecret")
-
-# MySQL connection (comes from GitHub Secrets / Azure env vars)
-MYSQL_HOST = os.getenv("MYSQL_HOST")
-MYSQL_USER = os.getenv("MYSQL_USER")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-MYSQL_DB = os.getenv("MYSQL_DB")
-
-app.config["SQLALCHEMY_DATABASE_URI"] = (
-    f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}/{MYSQL_DB}"
-)
-
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-db = SQLAlchemy(app)
+db.init_app(app)
 migrate = Migrate(app, db)
-
-# ---------------- DATABASE MODEL ---------------- #
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(100), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-
-# ---------------- ROUTES ---------------- #
 
 @app.route("/")
 def home():
-    return "Flask App Running Successfully on Azure 🚀"
+    return "Flask App Running on Azure 🚀"
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -115,8 +21,8 @@ def register():
         username = request.form["username"]
         password = generate_password_hash(request.form["password"])
 
-        user = User(username=username, password=password)
-        db.session.add(user)
+        new_user = User(username=username, password=password)
+        db.session.add(new_user)
         db.session.commit()
 
         return redirect(url_for("login"))
@@ -127,7 +33,6 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-
         user = User.query.filter_by(
             username=request.form["username"]
         ).first()
@@ -138,9 +43,6 @@ def login():
         return "Invalid Credentials ❌"
 
     return render_template("login.html")
-
-
-# ---------------- RUN APP ---------------- #
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
